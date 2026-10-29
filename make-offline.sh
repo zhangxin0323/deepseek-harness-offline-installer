@@ -72,6 +72,9 @@ echo "=== 步骤4：联网安装 dsh 与 pnpm ==="
 npm install -g @deepseek-ai/dsh --loglevel=http --progress=true \
   --fetch-timeout=600000 --fetch-retries=5
 npm install -g pnpm@latest --loglevel=http
+# PPTX 生成（Node 包，与 Python 无关）
+npm install -g pptxgenjs@3.12.0 --loglevel=http
+npm cache clean --force || true
 
 dsh --version
 
@@ -156,6 +159,9 @@ sqlalchemy
 pymysql
 sqlcipher3
 oracledb
+# Web / 地理计算
+Flask
+geographiclib
 # 常用工具库
 requests
 pyyaml
@@ -280,6 +286,13 @@ fi
 LAUNCHER="$HOME/.local/bin/dsh-web"
 cat > "$LAUNCHER" <<LAUNCHER_EOF
 #!/bin/sh
+# 让 dsh 的 Node 脚本能 require 全局包（如 pptxgenjs）
+export NODE_PATH="$INSTALL_DIR/node/lib/node_modules${NODE_PATH:+:$NODE_PATH}"
+# 默认让 dsh 的终端工具直接使用包内 Python 3.11
+# （设置 DSH_NO_PYTHON_PATH=1 可恢复系统默认 Python）
+if [ "\${DSH_NO_PYTHON_PATH:-0}" != "1" ]; then
+  export PATH="$INSTALL_DIR/python-venv/bin:\$PATH"
+fi
 export PATH="$INSTALL_DIR/node/bin:$HOME/.local/bin:\$PATH"
 
 echo '============================================================'

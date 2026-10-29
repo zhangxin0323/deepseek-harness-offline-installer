@@ -94,6 +94,7 @@ http://127.0.0.1:3080
 | --- | --- |
 | 解压运行时（去掉顶层目录） | `~/.local/opt/deepseek-harness/` |
 | 创建命令软链接 `dsh` / `node` / `pnpm` | `~/.local/bin/` |
+| 全局安装 npm 包：dsh、pnpm、`pptxgenjs@3.12.0` | `~/.local/opt/deepseek-harness/node/lib/node_modules/` |
 | 若 `~/.local/bin` 不在 `PATH`，追加到 | `~/.profile` |
 | 初始化 web profile，并追加离线必需的 pnpm 配置 | `~/.dsh/profiles/web/pnpm-workspace.yaml` |
 | 修正 Python 环境路径，创建 `dsh-python` / `dsh-pip` | `~/.local/opt/deepseek-harness/python-venv/`、`~/.local/bin/` |
@@ -123,8 +124,8 @@ dangerouslyAllowAllBuilds: true # 放行插件构建脚本
 └── dsh-web-icon.jpeg         # 桌面图标源文件
 
 ~/.local/bin/dsh-web          # 启动脚本
-~/.local/bin/dsh-python       # Python 3.11（venv）快捷方式
-~/.local/bin/dsh-pip          # 对应 venv 的 pip
+~/.local/bin/dsh-python       # 包装脚本：始终使用 venv 的 Python 3.11
+~/.local/bin/dsh-pip          # 包装脚本：对应 venv 的 pip
 ~/.dsh/                       # 用户数据与配置（与安装包分离，升级不覆盖）
 ```
 
@@ -138,7 +139,10 @@ dangerouslyAllowAllBuilds: true # 放行插件构建脚本
 | 数据 / 科学计算 | `pandas` `numpy` `scipy` `chardet` `python-magic` `xlsx2csv` `unstructured` `matplotlib` `seaborn` `plotly` `kaleido` `pygame` |
 | 流程图 / 思维导图 | `graphviz` `pygraphviz` `diagrams` `networkx` `xmind` `xmindparser` |
 | 数据库 | `psycopg2-binary` `pymongo` `redis` `sqlalchemy` `pymysql` `sqlcipher3` `oracledb` `dmPython`（安装失败不阻断打包） |
+| Web / 地理计算 | `Flask` `geographiclib` |
 | 常用工具 | `requests` `pyyaml` `jinja2` `tabulate` `tqdm` |
+
+此外，Node 侧还全局安装了 `pptxgenjs@3.12.0`（用于生成 PPTX，与 Python 无关）；`dsh-web` 已设置 `NODE_PATH`，在 dsh 终端中可直接 `node -e "require('pptxgenjs')"`。
 
 使用方式：
 
@@ -148,11 +152,11 @@ dsh-python -m pip list           # 查看已安装包
 dsh-python your_script.py        # 直接运行脚本
 dsh-pip install <package>        # 仅在有内网 PyPI 源时可用
 
-# 或激活虚拟环境
+# 或激活虚拟环境（手动使用 dsh web 时可选）
 source ~/.local/opt/deepseek-harness/python-venv/bin/activate
 ```
 
-- dsh 的终端工具默认能通过 `PATH` 找到 `dsh-python`，可直接让 Agent 调用。
+**dsh 里怎么用：不需要先 activate。** `dsh-web` 启动脚本会把 `python-venv/bin` 放到 `PATH` 最前面，因此 dsh 的终端工具中直接执行 `python`、`pip`、`python3` 就是包内的 3.11 环境，Agent 也可以直接调用 `dsh-python`。如果希望 dsh 使用系统 Python，启动时设置 `DSH_NO_PYTHON_PATH=1`；如果绕过 `dsh-web` 直接执行 `dsh web`，则不会自动注入 venv，需要先 `source .../python-venv/bin/activate` 或使用 `dsh-python`。
 - `python/` 与 `python-venv/` 使用 `--relocatable` 构建，安装脚本会在目标机重写 venv 的 `pyvenv.cfg` 与解释器链接，因此换用户名/家目录后仍可用。
 - `pytesseract`、`pypandoc`、`graphviz`/`diagrams` 的**渲染**还依赖系统可执行文件 `tesseract`、`pandoc`、`dot`（Graphviz）。这些不属于 pip 包，需在目标机另行安装；仅调用 Python API 时不受影响。
 - 环境完全离线，`dsh-pip install` 默认无法访问公网；如需扩充依赖，请先在内网搭建 PyPI 镜像或提前下载 wheel。
@@ -225,7 +229,7 @@ export PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
 bash make-offline.sh
 ```
 
-脚本会依次：部署 Node.js → 全局安装 `@deepseek-ai/dsh` 和 `pnpm` → 用 uv 安装独立 Python 3.11 并创建可迁移 venv → **一次 `uv pip install` 合并安装全部依赖** → Python/Web 冒烟测试 → 生成 `install-on-target.sh` → 打包出 `deepseek-harness-user-offline.tar.gz`。
+脚本会依次：部署 Node.js → 全局安装 `@deepseek-ai/dsh`、`pnpm`、`pptxgenjs` → 用 uv 安装独立 Python 3.11 并创建可迁移 venv → **一次 `uv pip install` 合并安装全部依赖** → Python/Web 冒烟测试 → 生成 `install-on-target.sh` → 打包出 `deepseek-harness-user-offline.tar.gz`。
 
 > ⚠️ **注意**：打包脚本会把运行时安装到**当前用户的** `~/.local/opt/deepseek-harness`，会覆盖该目录下的旧版本；冒烟测试使用临时 `DSH_HOME`，不会读写你的 `~/.dsh`。建议在一台干净的打包机（或专用容器）上执行。
 >

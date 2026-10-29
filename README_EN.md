@@ -92,6 +92,7 @@ The installer only touches the current user's home directory:
 | --- | --- |
 | Extract the runtime (dropping the top-level directory) | `~/.local/opt/deepseek-harness/` |
 | Create `dsh` / `node` / `pnpm` command symlinks | `~/.local/bin/` |
+| Install global npm packages: dsh, pnpm, `pptxgenjs@3.12.0` | `~/.local/opt/deepseek-harness/node/lib/node_modules/` |
 | Append `~/.local/bin` to `PATH` if missing | `~/.profile` |
 | Initialize the web profile and add required offline pnpm settings | `~/.dsh/profiles/web/pnpm-workspace.yaml` |
 | Fix Python environment paths and create `dsh-python` / `dsh-pip` | `~/.local/opt/deepseek-harness/python-venv/`, `~/.local/bin/` |
@@ -121,8 +122,8 @@ Resulting layout:
 └── dsh-web-icon.jpeg         # desktop icon source
 
 ~/.local/bin/dsh-web          # launcher
-~/.local/bin/dsh-python       # Python 3.11 (venv) shortcut
-~/.local/bin/dsh-pip          # pip for that venv
+~/.local/bin/dsh-python       # wrapper: always uses the venv Python 3.11
+~/.local/bin/dsh-pip          # wrapper: pip for that venv
 ~/.dsh/                       # user data and config (kept outside the package; survives upgrades)
 ```
 
@@ -136,7 +137,10 @@ The bundle includes a self-contained Python 3.11.16 runtime managed by [uv](http
 | Data / scientific | `pandas` `numpy` `scipy` `chardet` `python-magic` `xlsx2csv` `unstructured` `matplotlib` `seaborn` `plotly` `kaleido` `pygame` |
 | Diagrams / mind maps | `graphviz` `pygraphviz` `diagrams` `networkx` `xmind` `xmindparser` |
 | Databases | `psycopg2-binary` `pymongo` `redis` `sqlalchemy` `pymysql` `sqlcipher3` `oracledb` `dmPython` (optional; a failure does not abort the build) |
+| Web / geodesy | `Flask` `geographiclib` |
 | Utilities | `requests` `pyyaml` `jinja2` `tabulate` `tqdm` |
+
+The Node side also has `pptxgenjs@3.12.0` installed globally (PPTX generation, unrelated to Python); `dsh-web` sets `NODE_PATH`, so `node -e "require('pptxgenjs')"` works in dsh terminals.
 
 Usage:
 
@@ -146,11 +150,11 @@ dsh-python -m pip list           # list installed packages
 dsh-python your_script.py        # run a script
 dsh-pip install <package>        # only works with an internal PyPI mirror
 
-# or activate the environment
+# or activate the environment (optional when using dsh web manually)
 source ~/.local/opt/deepseek-harness/python-venv/bin/activate
 ```
 
-- dsh's terminal tool can find `dsh-python` via `PATH`, so agents can call it directly.
+**Using it inside dsh requires no activation.** The `dsh-web` launcher puts `python-venv/bin` at the front of `PATH`, so `python`, `pip`, and `python3` in dsh's terminal tool are already the bundled 3.11 environment; agents can also call `dsh-python` directly. To keep the system Python instead, start with `DSH_NO_PYTHON_PATH=1`. Running `dsh web` directly (bypassing `dsh-web`) does not inject the venv; activate it first or use `dsh-python`.
 - `python/` and `python-venv/` are built with `--relocatable`; the installer rewrites the venv's `pyvenv.cfg` and interpreter link on the target, so a different username or home directory is fine.
 - **Rendering** with `pytesseract`, `pypandoc`, or `graphviz`/`diagrams` still needs the system executables `tesseract`, `pandoc`, and `dot` (Graphviz). They are not pip packages and must be installed separately; the Python APIs work without them.
 - The environment is fully offline; `dsh-pip install` cannot reach the public internet by default. To add packages, set up an internal PyPI mirror or pre-download the wheels.
@@ -223,7 +227,7 @@ export PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
 bash make-offline.sh
 ```
 
-The script deploys Node.js → installs `@deepseek-ai/dsh` and `pnpm` globally → installs a standalone Python 3.11 via uv and creates a relocatable venv → **installs all Python packages in one merged `uv pip install`** → runs Python and web smoke tests → regenerates `install-on-target.sh` → produces `deepseek-harness-user-offline.tar.gz`.
+The script deploys Node.js → installs `@deepseek-ai/dsh`, `pnpm`, and `pptxgenjs` globally → installs a standalone Python 3.11 via uv and creates a relocatable venv → **installs all Python packages in one merged `uv pip install`** → runs Python and web smoke tests → regenerates `install-on-target.sh` → produces `deepseek-harness-user-offline.tar.gz`.
 
 > ⚠️ **Caution**: the build script installs the runtime into the **current user's** `~/.local/opt/deepseek-harness`, overwriting any previous build there. The smoke test uses a temporary `DSH_HOME` and does not touch your `~/.dsh`. A clean build machine (or dedicated container) is still recommended.
 >
