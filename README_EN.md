@@ -2,15 +2,17 @@
 
 A one-shot, fully offline deployment package for the **DeepSeek Harness web UI** on **Kylin V10 Desktop (arm64)** intranets.
 
-- **No network required** — Node.js, dsh, and pnpm are bundled; the installer never reaches the internet.
+- **No network required** — Node.js, dsh, pnpm, and the Python environment are bundled; the installer never reaches the internet.
 - **No sudo required** — everything is installed under the current user's home directory.
 - **Ready out of the box** — a "DeepSeek Harness" desktop icon appears after installation; double-click it to start the service and open the browser.
+- **Python 3.11 included** — document, data-science, plotting, and database libraries are preinstalled and ready to use.
 
 | Component | Version |
 | --- | --- |
 | Node.js | v26.2.0 (linux-arm64) |
 | dsh (`@deepseek-ai/dsh`) | 0.2.1-rc.2 |
 | pnpm | 12.16.1 |
+| Python | 3.11.16 (uv-managed, independent of the system Python) |
 
 ---
 
@@ -18,10 +20,11 @@ A one-shot, fully offline deployment package for the **DeepSeek Harness web UI**
 
 | File | Size | Purpose |
 | --- | --- | --- |
-| `deepseek-harness-user-offline.tar.gz` | ~302 MB | Self-contained runtime (expands to ~1.1 GB): Node.js + dsh + pnpm + desktop icon |
-| `install-on-target.sh` | 5 KB | Installer to run on the **target machine** (no sudo) |
-| `make-offline.sh` | 8 KB | Rebuilds the offline package on an **internet-connected build machine** |
+| `deepseek-harness-user-offline.tar.gz` | ~760 MB | Self-contained runtime (expands to ~2.7 GB): Node.js + dsh + pnpm + Python 3.11 environment + desktop icon |
+| `install-on-target.sh` | 6 KB | Installer to run on the **target machine** (no sudo) |
+| `make-offline.sh` | 15 KB | Rebuilds the offline package on an **internet-connected build machine** |
 | `node-v26.2.0-linux-arm64.tar.xz` | 31 MB | Official Node.js prebuilt binary; only needed when rebuilding, not on the target |
+| `uv-aarch64-unknown-linux-gnu.tar.gz` | 18 MB | Standalone uv binary used to build the Python 3.11 environment; only needed when rebuilding |
 | `icon.jpeg` | 5 KB | Desktop launcher icon |
 | `README.md` / `README_EN.md` | — | Chinese / English documentation |
 
@@ -32,7 +35,7 @@ A one-shot, fully offline deployment package for the **DeepSeek Harness web UI**
 ## 2. Requirements
 
 - OS: Kylin V10 (`aarch64`), glibc ≥ 2.28 (V10 ships 2.31, which is sufficient).
-- Disk space: about 1.5 GB for the install directory (302 MB archive + 1.1 GB extracted).
+- Disk space: about 2.7 GB for the install directory (Node/dsh ~1.4 GB + Python runtime ~95 MB + preinstalled packages ~1.2 GB); allow ~4 GB while copying and extracting.
 - Privileges: a regular user account; **no root or sudo**.
 - Desktop: any environment supporting `.desktop` entries (GNOME, MATE, UKUI, …).
 
@@ -53,7 +56,7 @@ cd ~/Downloads/dsh-offline       # required: the script looks for the tarball by
 bash install-on-target.sh
 ```
 
-When you see `✓ 安装完成。` ("installation complete"), it worked. The process usually takes 1–3 minutes, mostly spent extracting.
+When you see `✓ 安装完成。` ("installation complete"), it worked. The process usually takes 2–5 minutes, mostly spent extracting the ~2.7 GB runtime.
 
 ### 3.3 Start
 
@@ -91,6 +94,7 @@ The installer only touches the current user's home directory:
 | Create `dsh` / `node` / `pnpm` command symlinks | `~/.local/bin/` |
 | Append `~/.local/bin` to `PATH` if missing | `~/.profile` |
 | Initialize the web profile and add required offline pnpm settings | `~/.dsh/profiles/web/pnpm-workspace.yaml` |
+| Fix Python environment paths and create `dsh-python` / `dsh-pip` | `~/.local/opt/deepseek-harness/python-venv/`, `~/.local/bin/` |
 | Generate the launcher (prints a notice, then runs `dsh web`) | `~/.local/bin/dsh-web` |
 | Install the desktop icon | `~/.local/share/icons/deepseek-harness.jpeg` |
 | Create and trust the desktop shortcut | `~/桌面/dsh-web.desktop` (or `~/Desktop/` when no localized desktop directory exists) |
@@ -109,11 +113,47 @@ Resulting layout:
 ├── node/                     # Node.js runtime
 │   ├── bin/{node,npm,npx,pnpm,dsh}
 │   └── lib/node_modules/     # global packages: @deepseek-ai/dsh, pnpm
+├── python/                   # uv-managed Python 3.11 runtime
+├── python-venv/              # virtual environment with all packages preinstalled
+│   └── PYTHON_ENV.txt        # build time, Python/uv versions, pip freeze
+├── python-requirements.txt   # readable dependency list (generated during build)
+├── uv/                       # bundled uv (reusable)
 └── dsh-web-icon.jpeg         # desktop icon source
 
 ~/.local/bin/dsh-web          # launcher
+~/.local/bin/dsh-python       # Python 3.11 (venv) shortcut
+~/.local/bin/dsh-pip          # pip for that venv
 ~/.dsh/                       # user data and config (kept outside the package; survives upgrades)
 ```
+
+### Python 3.11 environment
+
+The bundle includes a self-contained Python 3.11.16 runtime managed by [uv](https://github.com/astral-sh/uv) under `python/`; it does not replace or affect the system Python. The `python-venv/` environment comes with the following packages preinstalled (installed in a single `uv pip install`):
+
+| Category | Packages |
+| --- | --- |
+| Documents / Office | `markitdown[pptx]` `Pillow` `defusedxml` `lxml` `python-pptx` `python-docx` `openpyxl` `xlrd` `xlsxwriter` `python-calamine` `olefile` `PyMuPDF` `pdfplumber` `pytesseract` `pypandoc` `docxtpl` |
+| Data / scientific | `pandas` `numpy` `scipy` `chardet` `python-magic` `xlsx2csv` `unstructured` `matplotlib` `seaborn` `plotly` `kaleido` `pygame` |
+| Diagrams / mind maps | `graphviz` `pygraphviz` `diagrams` `networkx` `xmind` `xmindparser` |
+| Databases | `psycopg2-binary` `pymongo` `redis` `sqlalchemy` `pymysql` `sqlcipher3` `oracledb` `dmPython` (optional; a failure does not abort the build) |
+| Utilities | `requests` `pyyaml` `jinja2` `tabulate` `tqdm` |
+
+Usage:
+
+```bash
+dsh-python -V                    # Python 3.11.16
+dsh-python -m pip list           # list installed packages
+dsh-python your_script.py        # run a script
+dsh-pip install <package>        # only works with an internal PyPI mirror
+
+# or activate the environment
+source ~/.local/opt/deepseek-harness/python-venv/bin/activate
+```
+
+- dsh's terminal tool can find `dsh-python` via `PATH`, so agents can call it directly.
+- `python/` and `python-venv/` are built with `--relocatable`; the installer rewrites the venv's `pyvenv.cfg` and interpreter link on the target, so a different username or home directory is fine.
+- **Rendering** with `pytesseract`, `pypandoc`, or `graphviz`/`diagrams` still needs the system executables `tesseract`, `pandoc`, and `dot` (Graphviz). They are not pip packages and must be installed separately; the Python APIs work without them.
+- The environment is fully offline; `dsh-pip install` cannot reach the public internet by default. To add packages, set up an internal PyPI mirror or pre-download the wheels.
 
 ---
 
@@ -144,6 +184,7 @@ Run `install-on-target.sh` again with the new `deepseek-harness-user-offline.tar
 # 1. Remove the runtime and commands
 rm -rf ~/.local/opt/deepseek-harness
 rm -f  ~/.local/bin/dsh ~/.local/bin/node ~/.local/bin/pnpm ~/.local/bin/dsh-web
+rm -f  ~/.local/bin/dsh-python ~/.local/bin/dsh-pip
 
 # 2. Remove the desktop shortcut and icon
 rm -f  ~/桌面/dsh-web.desktop ~/Desktop/dsh-web.desktop
@@ -166,7 +207,9 @@ Use this to upgrade versions, switch architectures (arm64 → x64), or use a dif
 1. A Linux build machine with the **same architecture as the target** and internet access.
 2. `npm`, `tar`, and `xz` available.
 3. The official Node.js prebuilt archive, e.g. `node-v26.2.0-linux-arm64.tar.xz` ([download](https://nodejs.org/dist/v26.2.0/)).
-4. `icon.jpeg` in the same directory as the script.
+4. The standalone uv archive, e.g. `uv-aarch64-unknown-linux-gnu.tar.gz` ([download](https://github.com/astral-sh/uv/releases)); skip this if `uv` is already installed on the build machine.
+5. `icon.jpeg` in the same directory as the script.
+6. Access to a PyPI mirror (the Tsinghua mirror is the default; override with `PIP_INDEX_URL`).
 
 ### Build
 
@@ -174,12 +217,17 @@ Use this to upgrade versions, switch architectures (arm64 → x64), or use a dif
 # Change the architecture if needed: arm64 / x64
 sed -i 's/^ARCH=.*/ARCH="x64"/' make-offline.sh
 
+# Optional: use a different PyPI mirror
+export PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+
 bash make-offline.sh
 ```
 
-The script deploys Node.js → installs `@deepseek-ai/dsh` and `pnpm` globally → smoke-tests the web service → regenerates `install-on-target.sh` → produces `deepseek-harness-user-offline.tar.gz`.
+The script deploys Node.js → installs `@deepseek-ai/dsh` and `pnpm` globally → installs a standalone Python 3.11 via uv and creates a relocatable venv → **installs all Python packages in one merged `uv pip install`** → runs Python and web smoke tests → regenerates `install-on-target.sh` → produces `deepseek-harness-user-offline.tar.gz`.
 
-> ⚠️ **Caution**: the build script installs dsh into the **current user's** `~/.local/opt/deepseek-harness` and, after the smoke test, runs `rm -rf "$HOME/.dsh"` to remove test data. Run it on a clean build machine (or a dedicated container); if the machine already has dsh data, back up `~/.dsh` first.
+> ⚠️ **Caution**: the build script installs the runtime into the **current user's** `~/.local/opt/deepseek-harness`, overwriting any previous build there. The smoke test uses a temporary `DSH_HOME` and does not touch your `~/.dsh`. A clean build machine (or dedicated container) is still recommended.
+>
+> The extracted Python environment is about 1.3 GB. Building needs 3–4 GB of extra temporary space and downloads several hundred MB of wheels from PyPI; allow 15–30 minutes for the first build.
 
 Then copy the new `deepseek-harness-user-offline.tar.gz` and `install-on-target.sh` to the target machine.
 
@@ -205,6 +253,38 @@ source ~/.profile
 # or temporarily:
 export PATH="$HOME/.local/bin:$PATH"
 ```
+
+**`dsh-python: command not found`**
+
+Check that `~/.local/bin` is on your `PATH`. If the file does not exist, the installer did not find the bundled Python runtime; re-run `install-on-target.sh`. You can also use the absolute path:
+
+```bash
+~/.local/opt/deepseek-harness/python-venv/bin/python -V
+```
+
+**Python fails with `No module named 'encodings'` or a venv path error**
+
+The install directory was moved, or the archive was extracted without `install-on-target.sh`. Re-run the installer, which rewrites `pyvenv.cfg` and the interpreter link:
+
+```bash
+bash install-on-target.sh
+```
+
+**matplotlib complains about a read-only config directory**
+
+If the home directory is write-restricted, point the cache elsewhere:
+
+```bash
+export MPLCONFIGDIR="$HOME/.cache/matplotlib"
+```
+
+**`pytesseract` / `pypandoc` / `graphviz` cannot find an executable at runtime**
+
+These libraries are only Python wrappers; install `tesseract`, `pandoc`, and `dot` (Graphviz) system packages on the target. For offline machines, use the corresponding RPM/DEB packages.
+
+**`dsh-pip install` cannot reach the network**
+
+This is expected: the package has no public internet access. Configure an internal PyPI mirror (`PIP_INDEX_URL`), or pre-download wheels and use `dsh-pip install --no-index --find-links <dir>`.
 
 **pnpm blocks installs with `minimumReleaseAge` or refuses build scripts**
 
@@ -252,5 +332,5 @@ The first launch initializes the profile and plugin directories; this usually ta
 ## 9. Security Notes
 
 - The service listens on loopback (`127.0.0.1`) only. Do not forward or expose it to untrusted networks.
-- The package contains official Node.js prebuilt binaries and public npm packages. Verify integrity with `sha256sum` before and after copying.
+- The package contains official Node.js prebuilt binaries, a standalone Python runtime, and public npm/PyPI packages. Verify integrity with `sha256sum` before and after copying.
 - The installer never runs `sudo` and never writes to system directories; every change can be reverted with the commands in section 6.

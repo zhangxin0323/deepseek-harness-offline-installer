@@ -16,6 +16,12 @@ install-on-target.sh
 node-*.tar.xz
 node-*.tar.gz
 
+# uv standalone binary archive used to build the Python 3.11 environment
+uv-*.tar.gz
+
+# uv download cache created during packaging
+.uv-cache/
+
 # Local tools installed without root (e.g. portable git)
 .tools/
 
