@@ -4,6 +4,8 @@
 
 当前版本：**0.2.1-rc.2**（对应标签 `0.2.1-rc.2`）
 
+> 版本约定：本项目不单独编号。Release 标签、包文件名、`manifest.json` 中的版本均直接使用 DeepSeek Harness（dsh）的版本，例如 `0.2.1-rc.2`。
+
 ---
 
 ## 一、当前状态
@@ -17,8 +19,6 @@
 ---
 
 ## 二、下一里程碑：按 CPU 架构区分安装包
-
-**目标版本：0.3.0（建议）**
 
 ### 2.1 目标
 
@@ -39,11 +39,11 @@
 可选：在文件名中加入版本号，例如：
 
 ```text
-deepseek-harness-user-offline-0.3.0-linux-arm64.tar.gz
-deepseek-harness-user-offline-0.3.0-linux-x86_64.tar.gz
+deepseek-harness-user-offline-0.2.1-rc.2-linux-arm64.tar.gz
+deepseek-harness-user-offline-0.2.1-rc.2-linux-x86_64.tar.gz
 ```
 
-版本号建议与 Git 标签一致，由 `PACKAGE_VERSION` 变量注入；若希望文件名保持稳定，可只保留架构后缀，版本以 Release 标签区分。
+版本号直接取 dsh 版本（与 Git 标签一致），由 `DSH_VERSION` 变量注入，不维护独立的包版本；若希望文件名保持稳定，可只保留架构后缀，版本以 Release 标签区分。
 
 ### 2.3 自动识别逻辑
 
@@ -83,11 +83,10 @@ deepseek-harness-user-offline-0.3.0-linux-x86_64.tar.gz
 ```json
 {
   "schema": 1,
-  "package_version": "0.3.0",
+  "dsh_version": "0.2.1-rc.2",
   "target_arch": "arm64",
   "built_at": "2026-10-29T12:35:14+08:00",
   "node": "v26.2.0",
-  "dsh": "0.2.1-rc.2",
   "python": "3.11.16",
   "python_venv": "python-venv"
 }
