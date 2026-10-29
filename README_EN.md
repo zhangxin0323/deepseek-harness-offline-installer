@@ -14,6 +14,8 @@ A one-shot, fully offline deployment package for the **DeepSeek Harness web UI**
 | pnpm | 12.16.1 |
 | Python | 3.11.16 (uv-managed, independent of the system Python) |
 
+> See [ROADMAP.md](ROADMAP.md) for planned work (multi-architecture packages, auto-detection).
+
 ---
 
 ## 1. Package Contents

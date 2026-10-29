@@ -14,6 +14,8 @@
 | pnpm | 12.16.1 |
 | Python | 3.11.16（uv 托管，独立于系统 Python） |
 
+> 后续计划（多架构包、自动识别等）见 [ROADMAP.md](ROADMAP.md)。
+
 ---
 
 ## 一、包内容
